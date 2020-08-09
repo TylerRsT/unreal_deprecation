@@ -28,14 +28,14 @@ public class Deprecation : ModuleRules
 				"Core",
 				// ... add other public dependencies that you statically link with here ...
 			}
-			);
+            );
 			
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
-				"Engine",
+                "CoreUObject",
+                "Engine",
 				"Slate",
 				"SlateCore",
 				// ... add private dependencies that you statically link with here ...	

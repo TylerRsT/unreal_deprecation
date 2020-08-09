@@ -8,12 +8,39 @@
 //------------------------
 class DEPRECATION_API FDeprecationProperty final
 {
+	// Friends
+private:
+	friend class FDeprecationScope;
+
+
+
 	// Typedefs
 public:
 	typedef TMap<FName, FDeprecationProperty> Map;
 
 	typedef union Variant
 	{
+		Variant()
+			: Name()
+			, Box()
+			, Box2D()
+			, Vector2D()
+			, IntRect()
+			, IntPoint()
+			, Vector4()
+			, Vector()
+			, Rotator()
+			, Color()
+			, Plane()
+			, Matrix()
+			, LinearColor()
+			, Quat()
+			, Transform()
+			, ObjectImport()
+		{ 
+			FMemory::Memset(this, 0, sizeof(Variant));
+		}
+
 		Variant(const Variant& Other)
 			: bBool(Other.bBool)
 			, Int8(Other.Int8)
@@ -27,8 +54,6 @@ public:
 			, Float(Other.Float)
 			, Double(Other.Double)
 			, Name(Other.Name)
-			, BoxSphereBounds(Other.BoxSphereBounds)
-			, Sphere(Other.Sphere)
 			, Box(Other.Box)
 			, Box2D(Other.Box2D)
 			, Vector2D(Other.Vector2D)
@@ -44,7 +69,6 @@ public:
 			, Quat(Other.Quat)
 			, Transform(Other.Transform)
 			, ObjectImport(Other.ObjectImport)
-			, Map(Other.Map)
 		{
 		}
 
@@ -62,8 +86,6 @@ public:
 			Float = Other.Float;
 			Double = Other.Double;
 			Name = Other.Name;
-			BoxSphereBounds = Other.BoxSphereBounds;
-			Sphere = Other.Sphere;
 			Box = Other.Box;
 			Box2D = Other.Box2D;
 			Vector2D = Other.Vector2D;
@@ -79,12 +101,16 @@ public:
 			Quat = Other.Quat;
 			Transform = Other.Transform;
 			ObjectImport = Other.ObjectImport;
-			Map = Other.Map;
 		}
 
 		inline FString GetString() const
 		{
 			return Name.GetPlainNameString();
+		}
+
+		inline void SetString(FString Value)
+		{
+			Name = FName(*Value);
 		}
 
 		bool				bBool;
@@ -103,8 +129,6 @@ public:
 
 		FName				Name;
 
-		FBoxSphereBounds	BoxSphereBounds;
-		FSphere				Sphere;
 		FBox				Box;
 		FBox2D				Box2D;
 		FVector2D			Vector2D;
@@ -121,16 +145,38 @@ public:
 		FTransform			Transform;
 
 		FObjectImport		ObjectImport;
-
-		Map*				Map;
 	} Variant;
 
-private:
-	typedef struct VariantPair
+
+
+
+	
+	// Constructors
+public:
+	FDeprecationProperty()
+		: KeyProperties(nullptr)
+		, ValueProperties(nullptr)
+	{ }
+
+
+
+
+	// Destructors
+public:
+	~FDeprecationProperty()
 	{
-		Variant Key;
-		Variant Value;
-	} VariantPair;
+		if (KeyProperties)
+		{
+			delete KeyProperties;
+			KeyProperties = nullptr;
+		}
+
+		if (ValueProperties)
+		{
+			delete ValueProperties;
+			ValueProperties = nullptr;
+		}
+	}
 
 
 
@@ -139,7 +185,7 @@ private:
 public:
 	inline const Variant& GetKey(int32 Index) const
 	{
-		return Variants[Index].Key;
+		return Keys[Index];
 	}
 
 	inline const Variant& GetKey() const
@@ -147,9 +193,14 @@ public:
 		return GetKey(0);
 	}
 
+	inline Variant& AddKey()
+	{
+		return Keys.AddDefaulted_GetRef();
+	}
+
 	inline const Variant& GetValue(int32 Index) const
 	{
-		return Variants[Index].Value;
+		return Values[Index];
 	}
 
 	inline const Variant& GetValue() const
@@ -157,26 +208,31 @@ public:
 		return GetValue(0);
 	}
 
-	inline int32 Num() const { return Variants.Num(); }
-
-	inline bool HasValue() const { return Num() == 0; }
-
-	inline void GetKeys(TArray<Variant>& OutVariants) const
+	inline Variant& AddValue()
 	{
-		OutVariants.Reserve(Variants.Num());
-		for (const VariantPair& Pair : Variants)
-		{
-			OutVariants.Add(Pair.Key);
-		}
+		return Values.AddDefaulted_GetRef();
 	}
 
-	inline void GetValues(TArray<Variant>& OutVariants) const
+	inline bool HasValue() const { return Values.Num() > 0; }
+
+	inline const TArray<Variant> GetKeys() const
 	{
-		OutVariants.Reserve(Variants.Num());
-		for (const VariantPair& Pair : Variants)
-		{
-			OutVariants.Add(Pair.Value);
-		}
+		return Keys;
+	}
+
+	inline const TArray<Variant> GetValues() const
+	{
+		return Values;
+	}
+
+	inline Map const* const GetKeyProperties() const
+	{
+		return KeyProperties;
+	}
+
+	inline Map const* const GetValueProperties() const
+	{
+		return ValueProperties;
 	}
 
 
@@ -186,9 +242,14 @@ public:
 	FName PropertyName;
 	FName PropertyTypeName;
 
+	FName StructTypeName;
 	FName InnerTypeName;
 	FName MapValueTypeName; // For Map properties
 
+	TArray<Variant> Keys;
+	TArray<Variant> Values;
+
 private:
-	TArray<VariantPair> Variants;
+	Map* KeyProperties;
+	Map* ValueProperties;
 };
