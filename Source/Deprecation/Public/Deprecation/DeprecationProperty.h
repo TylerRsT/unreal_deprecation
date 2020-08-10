@@ -69,6 +69,8 @@ public:
 			, Quat(Other.Quat)
 			, Transform(Other.Transform)
 			, ObjectImport(Other.ObjectImport)
+			, XObject(Other.XObject)
+			, Properties(Other.Properties)
 		{
 		}
 
@@ -101,6 +103,8 @@ public:
 			Quat = Other.Quat;
 			Transform = Other.Transform;
 			ObjectImport = Other.ObjectImport;
+			XObject = Other.XObject;
+			Properties = Other.Properties;
 		}
 
 		inline FString GetString() const
@@ -145,42 +149,52 @@ public:
 		FTransform			Transform;
 
 		FObjectImport		ObjectImport;
+		UObject*			XObject;
+		Map*				Properties;
 	} Variant;
 
 
 
 
-	
 	// Constructors
 public:
 	FDeprecationProperty()
-		: KeyProperties(nullptr)
-		, ValueProperties(nullptr)
+		: bHasKeyProperties(false)
+		, bHasValueProperties(false)
 	{ }
 
 
 
 
-	// Destructors
+	// Destructor
 public:
 	~FDeprecationProperty()
 	{
-		if (KeyProperties)
+		if (bHasKeyProperties)
 		{
-			delete KeyProperties;
-			KeyProperties = nullptr;
+			for (Variant& Variant : Keys)
+			{
+				delete Variant.Properties;
+				Variant.Properties = nullptr;
+			}
+			bHasKeyProperties = false;
 		}
 
-		if (ValueProperties)
+		if (bHasValueProperties)
 		{
-			delete ValueProperties;
-			ValueProperties = nullptr;
+			for (Variant& Variant : Values)
+			{
+				delete Variant.Properties;
+				Variant.Properties = nullptr;
+			}
+			bHasKeyProperties = false;
 		}
 	}
 
 
 
 
+	
 	// Methods
 public:
 	inline const Variant& GetKey(int32 Index) const
@@ -225,15 +239,6 @@ public:
 		return Values;
 	}
 
-	inline Map const* const GetKeyProperties() const
-	{
-		return KeyProperties;
-	}
-
-	inline Map const* const GetValueProperties() const
-	{
-		return ValueProperties;
-	}
 
 
 
@@ -249,7 +254,6 @@ public:
 	TArray<Variant> Keys;
 	TArray<Variant> Values;
 
-private:
-	Map* KeyProperties;
-	Map* ValueProperties;
+	bool bHasKeyProperties;
+	bool bHasValueProperties;
 };

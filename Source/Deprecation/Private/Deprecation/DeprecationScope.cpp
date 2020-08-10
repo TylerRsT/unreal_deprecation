@@ -7,6 +7,8 @@
 #include "UObject/NoExportTypes.h"
 #include "UObject/UnrealType.h"
 
+#pragma optimize("", off)
+
 //------------------------
 namespace
 {
@@ -222,11 +224,19 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 
 #undef BUILTIN_STRUCT
 
-		FDeprecationProperty::Map*& TargetMap = bIsKey ? TargetProperty.KeyProperties
-			: TargetProperty.ValueProperties;
+		FDeprecationProperty::Variant& Variant = MakeVariant(TargetProperty, bIsKey);
 
-		TargetMap = new FDeprecationProperty::Map();
-		GenerateRoot(*TargetMap, ValueStream);
+		if (bIsKey)
+		{
+			TargetProperty.bHasKeyProperties = true;
+		}
+		else
+		{
+			TargetProperty.bHasValueProperties = true;
+		}
+
+		Variant.Properties = new FDeprecationProperty::Map();
+		GenerateRoot(*Variant.Properties, ValueStream);
 
 		return;
 	}
@@ -244,6 +254,28 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		for (int32 Index = 0; Index < Size; ++Index)
 		{
 			GenerateValue(ValuePropertyTag, Linker, TargetProperty, bIsKey, ValuesStream);
+		}
+
+		return;
+	}
+
+	else if (Tag.Type == NAME_SetProperty)
+	{
+		FStructuredArchive::FRecord SetRecord = ValueStream.EnterElement().EnterRecord();
+
+		int32 NumElementsToRemove;
+		FStructuredArchive::FArray KeysToRemoveArray = SetRecord.EnterArray(FIELD_NAME_TEXT("ElementsToRemove"), NumElementsToRemove);
+
+		int32 Size;
+		FStructuredArchive::FArray ElementArray = SetRecord.EnterArray(FIELD_NAME_TEXT("Elements"), Size);
+
+		FPropertyTag ElementPropertyTag = Tag;
+		ElementPropertyTag.Type = Tag.InnerType;
+
+		for (int32 Index = 0; Index < Size; ++Index)
+		{
+			FStructuredArchive::FStream ElementStream = ElementArray.EnterElement().EnterStream();
+			GenerateValue(ElementPropertyTag, Linker, TargetProperty, bIsKey, ElementStream);
 		}
 
 		return;
@@ -288,10 +320,18 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		FPackageIndex PackageIndex;
 		ValueStream << PackageIndex;
 
-		if (Linker && PackageIndex.IsImport())
+		if (Linker)
 		{
-			FObjectImport ObjImport = Linker->Imp(PackageIndex);
-			Variant.ObjectImport = ObjImport;
+			if (PackageIndex.IsImport())
+			{
+				FObjectImport ObjImport = Linker->Imp(PackageIndex);
+				Variant.ObjectImport = ObjImport;
+			}
+			else
+			{
+				FObjectExport ObjExport = Linker->Exp(PackageIndex);
+				Variant.XObject = ObjExport.Object;
+			}
 		}
 	}
 
@@ -342,3 +382,5 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 #undef BUILTIN_TYPE
 	}
 }
+
+#pragma optimize("", on)
