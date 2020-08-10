@@ -14,10 +14,14 @@
 	"IsBetaVersion": true,
 	"Installed": false,
 	"Modules": [
-		{
-			"Name": "Deprecation",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
+    {
+      "Name": "Deprecation",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "BlacklistPlatforms": [
+        "IOS",
+        "HTML5"
+      ]
+    }
 	]
 }

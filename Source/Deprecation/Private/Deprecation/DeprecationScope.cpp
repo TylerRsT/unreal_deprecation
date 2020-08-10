@@ -1,13 +1,11 @@
 
 
-#include "DeprecationScope.h"
+#include "Deprecation/DeprecationScope.h"
 
 #include "Serialization/AsyncLoading.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/NoExportTypes.h"
 #include "UObject/UnrealType.h"
-
-#pragma optimize("", off)
 
 //------------------------
 namespace
@@ -35,18 +33,17 @@ namespace
 
 //------------------------
 FDeprecationScope::FDeprecationScope(UObject* Object,
-	FStructuredArchive::FRecord& Record, DeprecationHandler Handler)
+	FStructuredArchive::FRecord& Record, DeprecationHandler Handler, FString VersionPropertyName)
 	: Object(Object)
 	, Record(&Record)
 	, Handler(Handler)
+	, VersionPropertyName(VersionPropertyName)
 	, PreSerializePosition(Record.GetUnderlyingArchive().Tell())
 	, PostSerializePosition(0)
 	, bIsLoading(Record.GetUnderlyingArchive().IsLoading())
 	, bHasDeprecationProperty(false)
 {
 	static constexpr char* DefaultVersionPropertyName = "DeprecationVersion";
-
-	const TCHAR* DeprPropertyKey = TEXT("DeprecationProperty");
 
 	if (!bIsLoading)
 	{
@@ -57,7 +54,6 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 	check(this->Record);
 	
 	UClass* MyClass = Object->GetClass();
-	VersionPropertyName = MyClass->GetMetaData(DeprPropertyKey);
 
 	if (VersionPropertyName.IsEmpty())
 	{
@@ -141,16 +137,13 @@ bool FDeprecationScope::CheckDeprecation(uint64& AssetVersion, uint64& CodeVersi
 
 	uint64* AssetVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(Object);
 	AssetVersion = *AssetVersionPtr;
-	FString DeprVersionAsStr = MyClass->GetMetaData(DeprVersionKey);
+
+	uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(MyClass->GetDefaultObject());
+	CodeVersion = *CodeVersionPtr;
 
 	if (!bHasDeprecationProperty)
 	{
 		AssetVersion = 0;
-	}
-
-	if (!DeprVersionAsStr.IsEmpty())
-	{
-		CodeVersion = FCString::Atoi(*DeprVersionAsStr);
 	}
 
 	*AssetVersionPtr = CodeVersion;
@@ -382,5 +375,3 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 #undef BUILTIN_TYPE
 	}
 }
-
-#pragma optimize("", on)
