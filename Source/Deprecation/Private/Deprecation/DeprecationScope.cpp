@@ -66,10 +66,13 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 
 	if (!bIsLoading)
 	{
+		// If saving, we have to set the code version to invalid value,
+		// so the system serializes the current value (which should be the default value).
 		*CodeVersionPtr = (uint64)-1;
 		return;
 	}
 
+	// Looking for the deprecation property in the asset (if present).
 	FStructuredArchive::FSlot Slot = Record.EnterField(FIELD_NAME_TEXT("Properties"));
 	FStructuredArchive::FStream Stream = Slot.EnterStream();
 
@@ -101,6 +104,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 			+ Tag.Size);
 	}
 
+	// We don't want to disturb the serializer :)
 	Record.GetUnderlyingArchive().Seek(PreSerializePosition);
 }
 
@@ -109,6 +113,7 @@ FDeprecationScope::~FDeprecationScope()
 {
 	if (!bIsLoading)
 	{
+		// Resetting the code version (for the same reason than in constructor).
 		uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(ObjectClass->GetDefaultObject());
 		*CodeVersionPtr = CodeVersion;
 		return;
