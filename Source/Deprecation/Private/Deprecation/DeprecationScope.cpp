@@ -37,27 +37,37 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 	: Object(Object)
 	, Record(&Record)
 	, Handler(Handler)
+	, ObjectClass(nullptr)
+	, VersionProperty(nullptr)
 	, VersionPropertyName(VersionPropertyName)
 	, PreSerializePosition(Record.GetUnderlyingArchive().Tell())
 	, PostSerializePosition(0)
 	, bIsLoading(Record.GetUnderlyingArchive().IsLoading())
-	, bHasDeprecationProperty(false)
+	, bAssetHasDeprecationProperty(false)
+	, CodeVersion(0)
 {
 	static constexpr char* DefaultVersionPropertyName = "DeprecationVersion";
 
-	if (!bIsLoading)
+	if (VersionPropertyName.IsEmpty())
 	{
-		return;
+		VersionPropertyName = DefaultVersionPropertyName;
 	}
 
 	check(Object);
 	check(this->Record);
 	
-	UClass* MyClass = Object->GetClass();
+	ObjectClass = Object->GetClass();
+	VersionProperty = Cast<UUInt64Property>(ObjectClass->FindPropertyByName(*VersionPropertyName));
+	ensureAlwaysMsgf(VersionProperty, TEXT("Version property with name '%s' not found."), *VersionPropertyName);
 
-	if (VersionPropertyName.IsEmpty())
+	uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(ObjectClass->GetDefaultObject());
+	CodeVersion = *CodeVersionPtr;
+	ensureAlwaysMsgf(CodeVersion != (uint64)-1, TEXT("Version property with name '%s' can not have MAX value (reserved)."), *VersionPropertyName);
+
+	if (!bIsLoading)
 	{
-		VersionPropertyName = DefaultVersionPropertyName;
+		*CodeVersionPtr = (uint64)-1;
+		return;
 	}
 
 	FStructuredArchive::FSlot Slot = Record.EnterField(FIELD_NAME_TEXT("Properties"));
@@ -83,7 +93,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 		}
 		if (Tag.Name == FNameVersionPropertyName)
 		{
-			bHasDeprecationProperty = true;
+			bAssetHasDeprecationProperty = true;
 			break;
 		}
 
@@ -99,15 +109,16 @@ FDeprecationScope::~FDeprecationScope()
 {
 	if (!bIsLoading)
 	{
+		uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(ObjectClass->GetDefaultObject());
+		*CodeVersionPtr = CodeVersion;
 		return;
 	}
 
 	PostSerializePosition = Record->GetUnderlyingArchive().Tell();
 
 	uint64 AssetVersion;
-	uint64 CodeVersion;
 
-	if (CheckDeprecation(AssetVersion, CodeVersion))
+	if (CheckDeprecation(AssetVersion))
 	{
 		Record->GetUnderlyingArchive().Seek(PreSerializePosition);
 
@@ -125,23 +136,12 @@ FDeprecationScope::~FDeprecationScope()
 }
 
 //------------------------
-bool FDeprecationScope::CheckDeprecation(uint64& AssetVersion, uint64& CodeVersion)
+bool FDeprecationScope::CheckDeprecation(uint64& AssetVersion)
 {
-	const TCHAR* DeprVersionKey = TEXT("DeprecationVersion");
-
-	UClass* MyClass = Object->GetClass();
-
-	UUInt64Property* VersionProperty =
-		Cast<UUInt64Property>(MyClass->FindPropertyByName(*VersionPropertyName));
-	ensureAlwaysMsgf(VersionProperty, TEXT("Version property with name '%s' not found."), *VersionPropertyName);
-
 	uint64* AssetVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(Object);
 	AssetVersion = *AssetVersionPtr;
 
-	uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(MyClass->GetDefaultObject());
-	CodeVersion = *CodeVersionPtr;
-
-	if (!bHasDeprecationProperty)
+	if (!bAssetHasDeprecationProperty)
 	{
 		AssetVersion = 0;
 	}

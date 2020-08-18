@@ -73,10 +73,9 @@ private:
 	/**
 	 * Checks if asset is deprecated comparing the versions of the asset and the code.
 	 * @param AssetVersion Version of the asset (retrieved through the file).
-	 * @param CodeVersion Current version of the structure.
 	 * @returns True if the asset is deprecated, false otherwise.
 	 */
-	bool CheckDeprecation(uint64& AssetVersion, uint64& CodeVersion);
+	bool CheckDeprecation(uint64& AssetVersion);
 
 	/**
 	 * Generates the property map from the asset file.
@@ -125,16 +124,22 @@ private:
 	FStructuredArchive::FRecord* Record;
 	DeprecationHandler Handler;
 
+	UClass* ObjectClass;
+	UUInt64Property* VersionProperty;
+	FString VersionPropertyName;
+
 	uint64 PreSerializePosition;
 	uint64 PostSerializePosition;
 
 	FDeprecationProperty::Map Root;
 
 	bool bIsLoading;
-	bool bHasDeprecationProperty;
+	bool bAssetHasDeprecationProperty;
 
-	FString VersionPropertyName;
+	uint64 CodeVersion;
 };
+
+#if !UE_BUILD_SHIPPING
 
 /**
  * Creates a temporary Deprecation Scope for the current asset.
@@ -146,3 +151,12 @@ private:
 #define DEPRECATION_SCOPE_CUSTOM_VERSION_PROPERTY(Object, Record, Handler, VersionPropertyName) FDeprecationScope __DeprScope__(Object, Record, (FDeprecationScope::DeprecationHandler)(Handler), VersionPropertyName);
 #define DEPRECATION_SCOPE_LOCAL(Handler) DEPRECATION_SCOPE(this, Record, Handler)
 #define DEPRECATION_SCOPE_LOCAL_CUSTOM_VERSION_PROPERTY(Handler, VersionPropertyName) DEPRECATION_SCOPE_CUSTOM_VERSION_PROPERTY(Handler, VersionPropertyName)
+
+#else
+
+#define DEPRECATION_SCOPE(Object, Record, Handler)
+#define DEPRECATION_SCOPE_CUSTOM_VERSION_PROPERTY(Object, Record, Handler, VersionPropertyName)
+#define DEPRECATION_SCOPE_LOCAL(Handler)
+#define DEPRECATION_SCOPE_LOCAL_CUSTOM_VERSION_PROPERTY(Handler, VersionPropertyName)
+
+#endif // !UE_BUILD_SHIPPING
