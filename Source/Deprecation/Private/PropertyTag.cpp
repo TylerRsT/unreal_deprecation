@@ -14,24 +14,13 @@
 FPropertyTag
 -----------------------------------------------------------------------------*/
 
-// Constructors.
-FPropertyTag::FPropertyTag()
-	: Prop(nullptr)
-	, Type(NAME_None)
-	, BoolVal(0)
-	, Name(NAME_None)
-	, StructName(NAME_None)
-	, EnumName(NAME_None)
-	, InnerType(NAME_None)
-	, ValueType(NAME_None)
-	, Size(0)
-	, ArrayIndex(INDEX_NONE)
-	, SizeOffset(INDEX_NONE)
-	, HasPropertyGuid(0)
-{
-}
+#if WITH_TEXT_ARCHIVE_SUPPORT
+#define NAMED_ITEM(Name, Value) MakeNamedValue(FArchiveFieldName(TEXT(Name)), Value)
+#else
+#define NAMED_ITEM(Name, Value) MakeNamedValue(FArchiveFieldName(), Value)
+#endif
 
-FPropertyTag::FPropertyTag(FArchive& InSaveAr, UProperty* Property, int32 InIndex, uint8* Value, uint8* Defaults)
+FPropertyTag::FPropertyTag(FArchive& InSaveAr, FProperty* Property, int32 InIndex, uint8* Value, uint8* Defaults)
 	: Prop(Property)
 	, Type(Property->GetID())
 	, BoolVal(0)
@@ -48,39 +37,39 @@ FPropertyTag::FPropertyTag(FArchive& InSaveAr, UProperty* Property, int32 InInde
 	if (Property)
 	{
 		// Handle structs.
-		if (UStructProperty* StructProperty = Cast<UStructProperty>(Property))
+		if (FStructProperty* StructProperty = CastField<FStructProperty>(Property))
 		{
 			StructName = StructProperty->Struct->GetFName();
 			StructGuid = StructProperty->Struct->GetCustomGuid();
 		}
-		else if (UEnumProperty* EnumProp = Cast<UEnumProperty>(Property))
+		else if (FEnumProperty* EnumProp = CastField<FEnumProperty>(Property))
 		{
 			if (UEnum* Enum = EnumProp->GetEnum())
 			{
 				EnumName = Enum->GetFName();
 			}
 		}
-		else if (UByteProperty* ByteProp = Cast<UByteProperty>(Property))
+		else if (FByteProperty* ByteProp = CastField<FByteProperty>(Property))
 		{
 			if (ByteProp->Enum != nullptr)
 			{
 				EnumName = ByteProp->Enum->GetFName();
 			}
 		}
-		else if (UArrayProperty* ArrayProp = Cast<UArrayProperty>(Property))
+		else if (FArrayProperty* ArrayProp = CastField<FArrayProperty>(Property))
 		{
 			InnerType = ArrayProp->Inner->GetID();
 		}
-		else if (USetProperty* SetProp = Cast<USetProperty>(Property))
+		else if (FSetProperty* SetProp = CastField<FSetProperty>(Property))
 		{
 			InnerType = SetProp->ElementProp->GetID();
 		}
-		else if (UMapProperty* MapProp = Cast<UMapProperty>(Property))
+		else if (FMapProperty* MapProp = CastField<FMapProperty>(Property))
 		{
 			InnerType = MapProp->KeyProp->GetID();
 			ValueType = MapProp->ValueProp->GetID();
 		}
-		else if (UBoolProperty* Bool = Cast<UBoolProperty>(Property))
+		else if (FBoolProperty* Bool = CastField<FBoolProperty>(Property))
 		{
 			BoolVal = Bool->GetPropertyValue(Value);
 		}
@@ -196,22 +185,22 @@ void operator<<(FStructuredArchive::FSlot Slot, FPropertyTag& Tag)
 }
 
 // Property serializer.
-void FPropertyTag::SerializeTaggedProperty(FArchive& Ar, UProperty* Property, uint8* Value, uint8* Defaults) const
+void FPropertyTag::SerializeTaggedProperty(FArchive& Ar, FProperty* Property, uint8* Value, uint8* Defaults) const
 {
 	SerializeTaggedProperty(FStructuredArchiveFromArchive(Ar).GetSlot(), Property, Value, Defaults);
 }
 
-void FPropertyTag::SerializeTaggedProperty(FStructuredArchive::FSlot Slot, UProperty* Property, uint8* Value, uint8* Defaults) const
+void FPropertyTag::SerializeTaggedProperty(FStructuredArchive::FSlot Slot, FProperty* Property, uint8* Value, uint8* Defaults) const
 {
 	FArchive& UnderlyingArchive = Slot.GetUnderlyingArchive();
 
-	if (!UnderlyingArchive.IsTextFormat() && Property->GetClass() == UBoolProperty::StaticClass())
+	if (!UnderlyingArchive.IsTextFormat() && Property->GetClass() == FBoolProperty::StaticClass())
 	{
 		// ensure that the property scope gets recorded for boolean properties even though the data is stored in the tag
 		FSerializedPropertyScope SerializedProperty(UnderlyingArchive, Property);
 		UnderlyingArchive.Serialize(nullptr, 0);
 
-		UBoolProperty* Bool = (UBoolProperty*)Property;
+		FBoolProperty* Bool = (FBoolProperty*)Property;
 		if (UnderlyingArchive.IsLoading())
 		{
 			Bool->SetPropertyValue(Value, BoolVal != 0);

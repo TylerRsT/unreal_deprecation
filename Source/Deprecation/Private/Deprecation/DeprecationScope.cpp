@@ -2,7 +2,6 @@
 
 #include "Deprecation/DeprecationScope.h"
 
-#include "Serialization/AsyncLoading.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/NoExportTypes.h"
 #include "UObject/UnrealType.h"
@@ -57,7 +56,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 	check(this->Record);
 	
 	ObjectClass = Object->GetClass();
-	VersionProperty = Cast<UUInt64Property>(ObjectClass->FindPropertyByName(*VersionPropertyName));
+	VersionProperty = CastField<FUInt64Property>(ObjectClass->FindPropertyByName(*VersionPropertyName));
 	ensureAlwaysMsgf(VersionProperty, TEXT("Version property with name '%s' not found."), *VersionPropertyName);
 
 	uint64* CodeVersionPtr = VersionProperty->ContainerPtrToValuePtr<uint64>(ObjectClass->GetDefaultObject());
@@ -73,7 +72,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 	}
 
 	// Looking for the deprecation property in the asset (if present).
-	FStructuredArchive::FSlot Slot = Record.EnterField(FIELD_NAME_TEXT("Properties"));
+	FStructuredArchive::FSlot Slot = Record.EnterField(SA_FIELD_NAME(TEXT("Properties")));
 	FStructuredArchive::FStream Stream = Slot.EnterStream();
 
 	FName FNameVersionPropertyName(*VersionPropertyName);
@@ -83,7 +82,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 		FStructuredArchive::FRecord PropertyRecord = Stream.EnterElement().EnterRecord();
 
 		FPropertyTag Tag;
-		PropertyRecord << NAMED_FIELD(Tag);
+		PropertyRecord << SA_VALUE(TEXT("Tag"), Tag);
 
 		if (Tag.Name == NAME_None)
 		{
@@ -127,7 +126,7 @@ FDeprecationScope::~FDeprecationScope()
 	{
 		Record->GetUnderlyingArchive().Seek(PreSerializePosition);
 
-		FStructuredArchive::FSlot Slot = Record->EnterField(FIELD_NAME_TEXT("Properties"));
+		FStructuredArchive::FSlot Slot = Record->EnterField(SA_FIELD_NAME(TEXT("Properties")));
 		FStructuredArchive::FStream Stream = Slot.EnterStream();
 		GenerateRoot(Root, Stream);
 
@@ -165,7 +164,7 @@ void FDeprecationScope::GenerateRoot(FDeprecationProperty::Map& TargetMap,
 		FStructuredArchive::FRecord PropertyRecord = Stream.EnterElement().EnterRecord();
 
 		FPropertyTag Tag;
-		PropertyRecord << NAMED_FIELD(Tag);
+		PropertyRecord << SA_VALUE(TEXT("Tag"), Tag);
 
 		if (Tag.Name == NAME_None)
 		{
@@ -177,7 +176,7 @@ void FDeprecationScope::GenerateRoot(FDeprecationProperty::Map& TargetMap,
 			break;
 		}
 
-		FStructuredArchive::FStream ValueStream = PropertyRecord.EnterField(FIELD_NAME_TEXT("Value")).EnterStream();
+		FStructuredArchive::FStream ValueStream = PropertyRecord.EnterField(SA_FIELD_NAME(TEXT("Value"))).EnterStream();
 		FDeprecationProperty& TargetProperty = MakeProperty(TargetMap, Tag);
 		GenerateValue(Tag, Linker, TargetProperty, false, ValueStream);
 	}
@@ -190,7 +189,7 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 	// Structures
 	if (Tag.Type == NAME_StructProperty)
 	{
-		ValueStream.EnterElement().EnterRecord().EnterField(FIELD_NAME_TEXT("Properties"));
+		ValueStream.EnterElement().EnterRecord().EnterField(SA_FIELD_NAME(TEXT("Properties")));
 
 		//------------------------
 #define BUILTIN_STRUCT(TypeName) \
@@ -245,7 +244,7 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		int32 Size;
 		ValueStream << Size;
 
-		FStructuredArchive::FStream ValuesStream = ValueStream.EnterElement().EnterRecord().EnterField(FIELD_NAME_TEXT("Values")).EnterStream();
+		FStructuredArchive::FStream ValuesStream = ValueStream.EnterElement().EnterRecord().EnterField(SA_FIELD_NAME(TEXT("Values"))).EnterStream();
 		FPropertyTag ValuePropertyTag = Tag;
 		ValuePropertyTag.Type = Tag.InnerType;
 		
@@ -262,10 +261,10 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		FStructuredArchive::FRecord SetRecord = ValueStream.EnterElement().EnterRecord();
 
 		int32 NumElementsToRemove;
-		FStructuredArchive::FArray KeysToRemoveArray = SetRecord.EnterArray(FIELD_NAME_TEXT("ElementsToRemove"), NumElementsToRemove);
+		FStructuredArchive::FArray KeysToRemoveArray = SetRecord.EnterArray(SA_FIELD_NAME(TEXT("ElementsToRemove")), NumElementsToRemove);
 
 		int32 Size;
-		FStructuredArchive::FArray ElementArray = SetRecord.EnterArray(FIELD_NAME_TEXT("Elements"), Size);
+		FStructuredArchive::FArray ElementArray = SetRecord.EnterArray(SA_FIELD_NAME(TEXT("Elements")), Size);
 
 		FPropertyTag ElementPropertyTag = Tag;
 		ElementPropertyTag.Type = Tag.InnerType;
@@ -285,10 +284,10 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		FStructuredArchive::FRecord MapRecord = ValueStream.EnterElement().EnterRecord();
 
 		int32 NumKeysToRemove;
-		FStructuredArchive::FArray KeysToRemoveArray = MapRecord.EnterArray(FIELD_NAME_TEXT("KeysToRemove"), NumKeysToRemove);
+		FStructuredArchive::FArray KeysToRemoveArray = MapRecord.EnterArray(SA_FIELD_NAME(TEXT("KeysToRemove")), NumKeysToRemove);
 
 		int32 NumEntries;
-		FStructuredArchive::FArray EntriesArray = MapRecord.EnterArray(FIELD_NAME_TEXT("Entries"), NumEntries);
+		FStructuredArchive::FArray EntriesArray = MapRecord.EnterArray(SA_FIELD_NAME(TEXT("Entries")), NumEntries);
 
 		FPropertyTag KeyPropertyTag = Tag;
 		KeyPropertyTag.Type = Tag.InnerType;
@@ -300,10 +299,10 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		{
 			FStructuredArchive::FRecord EntryRecord = EntriesArray.EnterElement().EnterRecord();
 
-			FStructuredArchive::FStream EntryKeyStream = EntryRecord.EnterField(FIELD_NAME_TEXT("Key")).EnterStream();
+			FStructuredArchive::FStream EntryKeyStream = EntryRecord.EnterField(SA_FIELD_NAME(TEXT("Key"))).EnterStream();
 			GenerateValue(KeyPropertyTag, Linker, TargetProperty, true, EntryKeyStream);
 
-			FStructuredArchive::FStream EntryValueStream = EntryRecord.EnterField(FIELD_NAME_TEXT("Value")).EnterStream();
+			FStructuredArchive::FStream EntryValueStream = EntryRecord.EnterField(SA_FIELD_NAME(TEXT("Value"))).EnterStream();
 			GenerateValue(ValuePropertyTag, Linker, TargetProperty, false, EntryValueStream);
 		}
 
@@ -345,7 +344,7 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 	// Booleans
 	else if (Tag.Type == NAME_BoolProperty)
 	{
-		Variant.bBool = Tag.BoolVal;
+		Variant.bBool = Tag.BoolVal != 0;
 	}
 
 	// Strings

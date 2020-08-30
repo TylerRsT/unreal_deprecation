@@ -125,7 +125,7 @@ private:
 	DeprecationHandler Handler;
 
 	UClass* ObjectClass;
-	UUInt64Property* VersionProperty;
+	FUInt64Property* VersionProperty;
 	FString VersionPropertyName;
 
 	uint64 PreSerializePosition;
