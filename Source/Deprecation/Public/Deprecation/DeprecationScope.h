@@ -6,7 +6,7 @@
 
 #include "DeprecationProperty.h"
 
-#include "UObject/PropertyTag.h"
+#include "Deprecation/DeprecationPropertyTag.h"
 
 /**
  * Creates a deprecation property map from an asset so old structure can be handled by new code.
@@ -92,7 +92,7 @@ private:
 	 * @param bIsKey Indicates whether data should be stored in keys or values.
 	 * @param ValueStream File stream used to retrieve data.
 	 */
-	void GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
+	void GenerateValue(FDeprecationPropertyTag& Tag, FLinkerLoad* Linker,
 		FDeprecationProperty& TargetProperty, bool bIsKey, FStructuredArchive::FStream& ValueStream);
 
 

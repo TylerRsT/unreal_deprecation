@@ -11,7 +11,7 @@ namespace
 {
 	//------------------------
 	FDeprecationProperty& MakeProperty(
-		FDeprecationProperty::Map& TargetMap, FPropertyTag& Tag)
+		FDeprecationProperty::Map& TargetMap, FDeprecationPropertyTag& Tag)
 	{
 		FDeprecationProperty& DeprProperty = TargetMap.Add(Tag.Name);
 		DeprProperty.PropertyName = Tag.Name;
@@ -81,7 +81,7 @@ FDeprecationScope::FDeprecationScope(UObject* Object,
 	{
 		FStructuredArchive::FRecord PropertyRecord = Stream.EnterElement().EnterRecord();
 
-		FPropertyTag Tag;
+		FDeprecationPropertyTag Tag;
 		PropertyRecord << SA_VALUE(TEXT("Tag"), Tag);
 
 		if (Tag.Name == NAME_None)
@@ -163,7 +163,7 @@ void FDeprecationScope::GenerateRoot(FDeprecationProperty::Map& TargetMap,
 	{
 		FStructuredArchive::FRecord PropertyRecord = Stream.EnterElement().EnterRecord();
 
-		FPropertyTag Tag;
+		FDeprecationPropertyTag Tag;
 		PropertyRecord << SA_VALUE(TEXT("Tag"), Tag);
 
 		if (Tag.Name == NAME_None)
@@ -183,7 +183,7 @@ void FDeprecationScope::GenerateRoot(FDeprecationProperty::Map& TargetMap,
 }
 
 //------------------------
-void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
+void FDeprecationScope::GenerateValue(FDeprecationPropertyTag& Tag, FLinkerLoad* Linker,
 	FDeprecationProperty& TargetProperty, bool bIsKey, FStructuredArchive::FStream& ValueStream)
 {
 	// Structures
@@ -245,7 +245,7 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		ValueStream << Size;
 
 		FStructuredArchive::FStream ValuesStream = ValueStream.EnterElement().EnterRecord().EnterField(SA_FIELD_NAME(TEXT("Values"))).EnterStream();
-		FPropertyTag ValuePropertyTag = Tag;
+		FDeprecationPropertyTag ValuePropertyTag = Tag;
 		ValuePropertyTag.Type = Tag.InnerType;
 		
 		for (int32 Index = 0; Index < Size; ++Index)
@@ -266,7 +266,7 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		int32 Size;
 		FStructuredArchive::FArray ElementArray = SetRecord.EnterArray(SA_FIELD_NAME(TEXT("Elements")), Size);
 
-		FPropertyTag ElementPropertyTag = Tag;
+		FDeprecationPropertyTag ElementPropertyTag = Tag;
 		ElementPropertyTag.Type = Tag.InnerType;
 
 		for (int32 Index = 0; Index < Size; ++Index)
@@ -289,10 +289,10 @@ void FDeprecationScope::GenerateValue(FPropertyTag& Tag, FLinkerLoad* Linker,
 		int32 NumEntries;
 		FStructuredArchive::FArray EntriesArray = MapRecord.EnterArray(SA_FIELD_NAME(TEXT("Entries")), NumEntries);
 
-		FPropertyTag KeyPropertyTag = Tag;
+		FDeprecationPropertyTag KeyPropertyTag = Tag;
 		KeyPropertyTag.Type = Tag.InnerType;
 
-		FPropertyTag ValuePropertyTag = Tag;
+		FDeprecationPropertyTag ValuePropertyTag = Tag;
 		ValuePropertyTag.Type = Tag.ValueType;
 
 		for (int32 Index = 0; Index < NumEntries; ++Index)
