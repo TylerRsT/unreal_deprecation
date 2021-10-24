@@ -375,6 +375,7 @@ void FDeprecationScope::GenerateValue(FDeprecationPropertyTag& Tag, FLinkerLoad*
 		BUILTIN_TYPE(NAME_DoubleProperty, double, Double);
 
 		BUILTIN_TYPE(NAME_NameProperty, FName, Name);
+		BUILTIN_TYPE(NAME_EnumProperty, FName, Name);
 
 #undef BUILTIN_TYPE
 	}
